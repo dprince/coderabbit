@@ -10,6 +10,52 @@ reviews:
       instructions: >-
         - Focus on major issues impacting performance, readability, maintainability and security.
         - Avoid nitpicks and avoid verbosity.
+    # The following entries are path filters, not a repository-type guard: they
+    # fire on any repo that has matching paths (controllers/api/webhook dirs).
+    # They happen to be dormant in repos that don't use the kubebuilder layout
+    # only because those paths are absent there, not because CodeRabbit scopes
+    # them to operator repos.
+    - path: 'controllers/**/*.go'
+      instructions: &reconciler_instructions >-
+        This is a Kubernetes operator reconciler (openstack-k8s-operators convention).
+        Also check for:
+        - Reconciliation: Get()/IsNotFound handling, finalizer registration/removal, deferred
+          status updates via defer, and returning immediately after a spec/status update that
+          triggers a requeue.
+        - Conditions: correct severity/reason on condition-set calls, ReadyCondition lifecycle
+          (Unknown -> True/False), and not relying on condition state set earlier in the same
+          reconcile cycle.
+        - ObservedGeneration: updated at the start of Reconcile and checked against sub-CR
+          generations before treating a child resource as ready.
+        - Child Objects: regenerable resources (Deployment/StatefulSet/ConfigMap) vs persistent
+          resources (PVC/Secret) follow the correct lifecycle, OwnerReferences are set, and
+          finalizers are added/removed in pairs.
+        - Logging: uses ctrl.LoggerFrom(ctx) with structured key-value pairs, never fmt.Print*.
+        - RBAC: kubebuilder RBAC markers (+kubebuilder:rbac) match the resources/verbs actually
+          used in the code.
+    - path: 'internal/controller/**/*.go'
+      instructions: *reconciler_instructions
+    - path: 'api/**/*webhook*.go'
+      instructions: &webhook_instructions >-
+        This is a Kubernetes operator admission webhook (openstack-k8s-operators convention).
+        Also check that Default() and ValidateCreate/Update/Delete() are implemented at the
+        correct spec level, field.Path is used for all field errors, and errors are accumulated
+        into a field.ErrorList rather than returned one at a time.
+    - path: 'internal/webhook/**/*.go'
+      instructions: *webhook_instructions
+    - path: 'api/**/*_types.go'
+      instructions: >-
+        This is a Kubernetes operator CRD type definition (openstack-k8s-operators convention).
+        Also check for cross-CR references by name (not embedded objects), consistent use of the
+        override patterns used across openstack-k8s-operators (probes, topology, affinity), and
+        kubebuilder markers (validation, defaults, printcolumns) matching the field's intent.
+    - path: 'test/functional/**/*.go'
+      instructions: >-
+        This is an operator EnvTest suite (openstack-k8s-operators convention). Also check for
+        adequate EnvTest coverage of the reconcile paths touched by the change, use of
+        Eventually/Gomega instead of sleeps or direct assertions on eventually-consistent state,
+        simulated/faked external dependencies rather than real ones, and unique namespaces per
+        test to avoid cross-test interference.
   auto_review:
     ignore_title_keywords:
       - WIP
